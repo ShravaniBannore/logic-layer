@@ -55,17 +55,21 @@ function calculatePatentScore(abstractText) {
 function calculateLoanAmount(score) {
   if (score < 70) return 0; // Ineligible
 
+  // Eligible range 80k–1L
   const minLoan = 80000;
   const maxLoan = 100000;
-  const minScore = 70;
-  const maxScore = 95;
 
-  const calculated =
-    minLoan +
-    ((score - minScore) / (maxScore - minScore)) *
-      (maxLoan - minLoan);
+  // Simple randomness proportional to score
+  let randomFactor = Math.random() * 0.05; // 0–5% variation
+  let baseLoan;
 
-  return Math.round(calculated);
+  if (score >= 90) baseLoan = 98000;
+  else if (score >= 80) baseLoan = 85000;
+  else baseLoan = 80000;
+
+  let dynamicLoan = baseLoan + (maxLoan - baseLoan) * randomFactor;
+
+  return Math.round(dynamicLoan);
 }
 
 // -------------------------
@@ -87,7 +91,7 @@ app.post("/submit", async (req, res) => {
     const patentScore = calculatePatentScore(abstract_text);
     const loanAmount = calculateLoanAmount(patentScore);
 
-    // Insert into Supabase first
+    // Insert into Supabase
     const { data, error } = await supabase
       .from("Invention_Submissions")
       .insert([{
