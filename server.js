@@ -44,46 +44,51 @@ function calculatePatentScore(abstractText) {
   let marketScore = 0;
   let innovationScore = 0;
 
+  // Helper function: count keyword occurrences with word boundaries
+  const countKeyword = (keyword) => {
+    const regex = new RegExp(`\\b${keyword}\\b`, "gi");
+    return (text.match(regex) || []).length;
+  };
+
   technicalKeywords.forEach(word => {
-    if (text.includes(word)) technicalScore += 10;
+    technicalScore += countKeyword(word) * 10;
   });
-
   marketKeywords.forEach(word => {
-    if (text.includes(word)) marketScore += 10;
+    marketScore += countKeyword(word) * 10;
   });
-
   innovationKeywords.forEach(word => {
-    if (text.includes(word)) innovationScore += 10;
+    innovationScore += countKeyword(word) * 10;
   });
 
-  if (technicalScore > 100) technicalScore = 100;
-  if (marketScore > 100) marketScore = 100;
-  if (innovationScore > 100) innovationScore = 100;
+  // Cap scores at 100
+  technicalScore = Math.min(technicalScore, 100);
+  marketScore = Math.min(marketScore, 100);
+  innovationScore = Math.min(innovationScore, 100);
 
   const finalScore =
     (technicalScore * 0.4) +
     (marketScore * 0.3) +
     (innovationScore * 0.3);
 
-  return Math.floor(finalScore); // Floor to prevent rounding issues
+  return Math.floor(finalScore); // Floor to avoid rounding errors
 }
 
 // -------------------------
 // Dynamic Loan Logic & Eligibility
 // -------------------------
 function calculateLoanAmountAndStatus(score) {
+  const minLoan = 80000;
   const maxLoan = 100000;
-  let baseLoan = 0;
   let eligibility_status = "";
 
   if (score >= 80) {
     // Eligible
-    baseLoan = score >= 90 ? 98000 : 90000;
-    const randomFactor = Math.random() * 0.05; // 0–5% dynamic variation
+    let baseLoan = score >= 90 ? 98000 : 85000;
+    const randomFactor = Math.random() * 0.05; // 0–5% variation
     const dynamicLoan = baseLoan + (maxLoan - baseLoan) * randomFactor;
     eligibility_status = "Eligible ✅";
     return { loan: Math.round(dynamicLoan), status: eligibility_status };
-  } else if (score >= 70 && score < 80) {
+  } else if (score >= 70) {
     // Needs Improvement
     eligibility_status = "Needs Improvement ⚠️";
     return { loan: 0, status: eligibility_status };
