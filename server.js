@@ -18,6 +18,15 @@ const supabase = createClient(
 );
 
 // -------------------------
+// AI Evaluation Weightage Model
+// -------------------------
+const evaluationWeightage = {
+  technical_keywords: "40%",
+  market_need: "30%",
+  innovation_depth: "30%"
+};
+
+// -------------------------
 // Patent Scoring
 // -------------------------
 function calculatePatentScore(abstractText) {
@@ -133,6 +142,12 @@ app.post("/submit", async (req, res) => {
       patent_score: patentScore,
       loan_eligibility_amount: loanAmount,
       eligibility_status: eligibilityStatus,
+
+      evaluation_model: {
+        model_name: "Neural Innovation Scoring Engine",
+        weightage: evaluationWeightage
+      },
+
       data
     });
 
