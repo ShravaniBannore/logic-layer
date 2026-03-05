@@ -17,59 +17,81 @@ const supabase = createClient(
 );
 
 // -------------------------
-// Improved Patent Scoring
+// Patent Score Logic (40-30-30 Weightage)
 // -------------------------
 function calculatePatentScore(abstractText) {
-  const keywords = [
-    "novel", "efficiency", "sustainable", "integrated", "scalable",
-    "eco-friendly", "renewable", "zero-emission", "circular-economy",
-    "automation", "iot", "neural-network", "blockchain", "decentralized"
+  const text = abstractText.toLowerCase();
+
+  // Technical Keywords (40%)
+  const technicalKeywords = [
+    "ai","neural","blockchain","automation","iot",
+    "algorithm","machine learning","deep learning","scalable"
   ];
 
-  let baseScore = 50;
-  const text = abstractText.toLowerCase();
-  let matchedKeywords = 0;
+  // Market Need (30%)
+  const marketKeywords = [
+    "market","industry","demand","solution",
+    "efficiency","optimization","cost reduction"
+  ];
 
-  keywords.forEach(keyword => {
-    if (text.includes(keyword)) matchedKeywords++;
+  // Innovation (30%)
+  const innovationKeywords = [
+    "novel","innovative","unique","breakthrough",
+    "next-generation","proprietary"
+  ];
+
+  let technicalScore = 0;
+  let marketScore = 0;
+  let innovationScore = 0;
+
+  technicalKeywords.forEach(word => {
+    if (text.includes(word)) technicalScore += 10;
   });
 
-  // Each keyword gives 5 points
-  baseScore += matchedKeywords * 5;
+  marketKeywords.forEach(word => {
+    if (text.includes(word)) marketScore += 10;
+  });
 
-  // Word count scaling
-  const wordCount = abstractText.trim().split(/\s+/).length;
-  if (wordCount > 150) baseScore += 10;
-  else if (wordCount > 100) baseScore += 7;
-  else if (wordCount > 60) baseScore += 5;
+  innovationKeywords.forEach(word => {
+    if (text.includes(word)) innovationScore += 10;
+  });
 
-  // Cap score at 95
-  if (baseScore > 95) baseScore = 95;
+  if (technicalScore > 100) technicalScore = 100;
+  if (marketScore > 100) marketScore = 100;
+  if (innovationScore > 100) innovationScore = 100;
 
-  return Math.round(baseScore);
+  const finalScore =
+    (technicalScore * 0.4) +
+    (marketScore * 0.3) +
+    (innovationScore * 0.3);
+
+  return Math.floor(finalScore); // Floor to prevent rounding issues
 }
 
 // -------------------------
-// Dynamic Loan Logic (80k–100k)
+// Dynamic Loan Logic & Eligibility
 // -------------------------
-function calculateLoanAmount(score) {
-  if (score < 70) return 0; // Ineligible
-
-  // Eligible range 80k–1L
-  const minLoan = 80000;
+function calculateLoanAmountAndStatus(score) {
   const maxLoan = 100000;
+  let baseLoan = 0;
+  let eligibility_status = "";
 
-  // Simple randomness proportional to score
-  let randomFactor = Math.random() * 0.05; // 0–5% variation
-  let baseLoan;
-
-  if (score >= 90) baseLoan = 98000;
-  else if (score >= 80) baseLoan = 85000;
-  else baseLoan = 80000;
-
-  let dynamicLoan = baseLoan + (maxLoan - baseLoan) * randomFactor;
-
-  return Math.round(dynamicLoan);
+  if (score >= 80) {
+    // Eligible
+    baseLoan = score >= 90 ? 98000 : 90000;
+    const randomFactor = Math.random() * 0.05; // 0–5% dynamic variation
+    const dynamicLoan = baseLoan + (maxLoan - baseLoan) * randomFactor;
+    eligibility_status = "Eligible ✅";
+    return { loan: Math.round(dynamicLoan), status: eligibility_status };
+  } else if (score >= 70 && score < 80) {
+    // Needs Improvement
+    eligibility_status = "Needs Improvement ⚠️";
+    return { loan: 0, status: eligibility_status };
+  } else {
+    // Ineligible
+    eligibility_status = "Ineligible ❌";
+    return { loan: 0, status: eligibility_status };
+  }
 }
 
 // -------------------------
@@ -87,32 +109,36 @@ app.post("/submit", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Calculate dynamic patent score and loan
     const patentScore = calculatePatentScore(abstract_text);
-    const loanAmount = calculateLoanAmount(patentScore);
+    const { loan, status } = calculateLoanAmountAndStatus(patentScore);
 
-    // Insert into Supabase
     const { data, error } = await supabase
       .from("Invention_Submissions")
-      .insert([{
-        student_name,
-        invention_title,
-        abstract_text,
-        patent_score: patentScore,
-        loan_eligibility_amount: loanAmount
-      }])
+      .insert([
+        {
+          student_name,
+          invention_title,
+          abstract_text,
+          patent_score: patentScore,
+          loan_eligibility_amount: loan
+        }
+      ])
       .select();
 
     if (error) {
       return res.status(500).json({ error: error.message });
     }
 
-    // Send dynamic API response
     res.status(200).json({
       status: "success",
       patent_score: patentScore,
-      loan_eligibility_amount: loanAmount,
-      eligibility_status: loanAmount === 0 ? "Ineligible ❌" : "Eligible ✅",
+      loan_eligibility_amount: loan,
+      eligibility_status: status,
+      weightage: {
+        technical_keywords: "40%",
+        market_need: "30%",
+        innovation: "30%"
+      },
       data
     });
 
