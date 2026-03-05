@@ -52,11 +52,10 @@ function calculatePatentScore(abstractText) {
 }
 
 // -------------------------
-// Loan Logic (STRICT 80)
+// Loan Logic (Only 80+)
 // -------------------------
 function calculateLoanAmount(score) {
 
-  // Only 80+ eligible
   if (score < 80) return 0;
 
   const maxLoan = 100000;
@@ -93,15 +92,24 @@ app.post("/submit", async (req, res) => {
 
     const loanAmount = calculateLoanAmount(patentScore);
 
-    // Eligibility logic
+    // -------------------------
+    // Eligibility Status Logic
+    // -------------------------
     let eligibilityStatus;
 
     if (patentScore >= 80) {
-      eligibilityStatus = "Eligible ✅";
-    } else {
+      eligibilityStatus = "Eligible for Startup Funding ✅";
+    }
+    else if (patentScore >= 70 && patentScore <= 79) {
+      eligibilityStatus = "Needs Improvement ⚠️";
+    }
+    else {
       eligibilityStatus = "Not Eligible ❌";
     }
 
+    // -------------------------
+    // Save to Supabase
+    // -------------------------
     const { data, error } = await supabase
       .from("Invention_Submissions")
       .insert([{
@@ -117,6 +125,9 @@ app.post("/submit", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    // -------------------------
+    // API Response
+    // -------------------------
     res.status(200).json({
       status: "success",
       patent_score: patentScore,
