@@ -32,9 +32,24 @@ const evaluationWeightage = {
 function calculatePatentScore(abstractText) {
 
   const keywords = [
-    "novel","efficiency","sustainable","integrated","scalable",
-    "eco-friendly","renewable","zero-emission","circular-economy",
-    "automation","iot","neural-network","blockchain","decentralized"
+
+    // Technical keywords
+    "ai","ai-driven","neural","neural-network","machine learning",
+    "deep learning","iot","sensors","automation","algorithm",
+    "blockchain","decentralized","scalable","edge computing",
+
+    // Market keywords
+    "market","industry","b2b","commercial","scaling",
+    "revenue","efficiency","optimization","cost reduction",
+
+    // Innovation keywords
+    "novel","innovative","breakthrough","proprietary",
+    "next-generation","risk mitigation","sustainable",
+    "hydroponic","bionic","renewable","eco-friendly",
+
+    // Advanced Tech
+    "integrated","smart infrastructure","circular-economy",
+    "zero-emission","advanced architecture"
   ];
 
   let baseScore = 50;
@@ -44,7 +59,12 @@ function calculatePatentScore(abstractText) {
   let matchedKeywords = 0;
 
   keywords.forEach(keyword => {
-    if (text.includes(keyword)) matchedKeywords++;
+
+    // Case-Insensitive + Partial Match
+    const regex = new RegExp(keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), "i");
+
+    if (regex.test(text)) matchedKeywords++;
+
   });
 
   baseScore += matchedKeywords * 5;
