@@ -29,6 +29,14 @@ const evaluationWeightage = {
 };
 
 // -------------------------
+// Deterministic Random Generator
+// -------------------------
+function deterministicRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+// -------------------------
 // Keyword & Noun-Verb Lists
 // -------------------------
 const technicalKeywords = [
@@ -65,34 +73,26 @@ function calculatePatentScore(abstractText) {
 
   let baseScore = 50;
 
-  // Keyword matching
   let matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
   let matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
   let matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
 
-  // Novelty Boost
   let noveltyBoost = 0;
 
   technicalKeywords.forEach(tech => {
     structuralVerbs.forEach(verb => {
-
       if (text.includes(tech) && text.includes(verb)) {
         noveltyBoost += 5;
       }
-
     });
   });
 
-  // Impact Penalty
   let impactPenalty = 0;
 
   vagueWords.forEach(v => {
-
     if (text.includes(v)) impactPenalty += 2;
-
   });
 
-  // Word count bonus
   const wordCount = words.length;
 
   let wordBonus = 0;
@@ -108,8 +108,10 @@ function calculatePatentScore(abstractText) {
   baseScore += wordBonus;
   baseScore -= impactPenalty;
 
-  // ✅ Dynamic score factor added
-  const randomBoost = Math.floor(Math.random() * 6); 
+  // deterministic random boost
+  const seed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const randomBoost = Math.floor(deterministicRandom(seed) * 6);
+
   baseScore += randomBoost;
 
   if (baseScore > 95) baseScore = 95;
@@ -127,16 +129,23 @@ function calculatePatentScore(abstractText) {
 // -------------------------
 // Loan Logic (Only 80+)
 // -------------------------
-function calculateLoanAmount(score) {
+function calculateLoanAmount(score, abstractText) {
 
   if (score < 80) return 0;
 
   let baseLoan = score >= 90 ? 98000 : 85000;
 
-  // ✅ Dynamic loan variation
-  const randomVariation = Math.floor(Math.random() * 4000);
+  const seed = abstractText.split("")
+  .reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-  return Math.round(baseLoan + randomVariation);
+  const randomVariation = Math.floor(deterministicRandom(seed) * 4000);
+
+  let finalLoan = baseLoan + randomVariation;
+
+  // hard cap at 1 lakh
+  if (finalLoan > 100000) finalLoan = 100000;
+
+  return Math.round(finalLoan);
 
 }
 
@@ -144,9 +153,7 @@ function calculateLoanAmount(score) {
 // Routes
 // -------------------------
 app.get("/", (req, res) => {
-
   res.send("Logic Layer Running 🚀");
-
 });
 
 // Submission Route
@@ -157,27 +164,20 @@ app.post("/submit", async (req, res) => {
     const { student_name, invention_title, abstract_text } = req.body;
 
     if (!student_name || !invention_title || !abstract_text) {
-
       return res.status(400).json({ error: "Missing required fields" });
-
     }
 
     const scores = calculatePatentScore(abstract_text);
-
     const patentScore = scores.totalScore;
 
-    const loanAmount = calculateLoanAmount(patentScore);
+    const loanAmount = calculateLoanAmount(patentScore, abstract_text);
 
-    // Eligibility Status Logic
     let eligibilityStatus;
 
     if (patentScore >= 80) eligibilityStatus = "Eligible for Startup Funding ✅";
-
     else if (patentScore >= 70 && patentScore <= 79) eligibilityStatus = "Needs Improvement ⚠️";
-
     else eligibilityStatus = "Not Eligible ❌";
 
-    // Save to Supabase
     const { data, error } = await supabase
       .from("Invention_Submissions")
       .insert([{
@@ -195,7 +195,6 @@ app.post("/submit", async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     res.status(200).json({
-
       status: "success",
       patent_score: patentScore,
       loan_eligibility_amount: loanAmount,
@@ -205,13 +204,10 @@ app.post("/submit", async (req, res) => {
         weightage: evaluationWeightage
       },
       data
-
     });
 
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
 
 });
@@ -232,9 +228,7 @@ app.get("/certificate/:id", async (req, res) => {
       .single();
 
     if (error || !data) {
-
       return res.status(404).json({ error: "Submission not found" });
-
     }
 
     const doc = new jsPDF();
@@ -254,11 +248,9 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text(`Total Patent Score: ${data.patent_score}`, 20, 140);
 
     const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
-
     const qrImage = await QRCode.toDataURL(qrData);
 
     doc.addImage(qrImage, "PNG", 150, 60, 50, 50);
-
     doc.text("Scan QR for Verification", 150, 120);
 
     doc.setFontSize(10);
@@ -272,20 +264,14 @@ app.get("/certificate/:id", async (req, res) => {
     res.send(Buffer.from(pdfBuffer));
 
   } catch (err) {
-
     res.status(500).json({ error: err.message });
-
   }
 
 });
 
 // -------------------------
-// Start Server
-// -------------------------
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-
   console.log(`Server running on port ${PORT}`);
-
 });
