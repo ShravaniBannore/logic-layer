@@ -29,14 +29,6 @@ const evaluationWeightage = {
 };
 
 // -------------------------
-// Deterministic PRNG for repeatability
-// -------------------------
-function deterministicRandom(seed) {
-  let x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-// -------------------------
 // Keyword & Noun-Verb Lists
 // -------------------------
 const technicalKeywords = [
@@ -64,7 +56,7 @@ const vagueWords = [
 const structuralVerbs = ["method","apparatus","system","process"];
 
 // -------------------------
-// Patent Scoring
+// Dynamic Patent Scoring
 // -------------------------
 function calculatePatentScore(abstractText) {
   const text = abstractText.toLowerCase(); // case-insensitive
@@ -72,17 +64,17 @@ function calculatePatentScore(abstractText) {
 
   let baseScore = 50;
 
-  // Keyword matching
-  let matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
-  let matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
-  let matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
+  // Keyword matching (dynamic factor added)
+  const matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
+  const matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
+  const matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
 
   // Novelty Boost: technical + structural verb
   let noveltyBoost = 0;
   technicalKeywords.forEach(tech => {
     structuralVerbs.forEach(verb => {
       if (text.includes(tech) && text.includes(verb)) {
-        noveltyBoost += 5; // boost novelty
+        noveltyBoost += Math.floor(Math.random() * 5 + 3); // dynamic boost
       }
     });
   });
@@ -90,22 +82,24 @@ function calculatePatentScore(abstractText) {
   // Impact Penalty: vague/common words
   let impactPenalty = 0;
   vagueWords.forEach(v => {
-    if (text.includes(v)) impactPenalty += 2;
+    if (text.includes(v)) impactPenalty += Math.floor(Math.random() * 3 + 1); // dynamic penalty
   });
 
-  // Word count bonus
+  // Word count bonus (dynamic)
   const wordCount = words.length;
   let wordBonus = 0;
-  if (wordCount > 150) wordBonus = 10;
-  else if (wordCount > 100) wordBonus = 7;
-  else if (wordCount > 60) wordBonus = 5;
+  if (wordCount > 150) wordBonus = Math.floor(Math.random() * 6 + 5);
+  else if (wordCount > 100) wordBonus = Math.floor(Math.random() * 4 + 3);
+  else if (wordCount > 60) wordBonus = Math.floor(Math.random() * 3 + 2);
 
-  // Deterministic "random factor"
-  const seed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const randomFactor = deterministicRandom(seed);
+  // Dynamic "random factor" added for final score
+  const randomFactor = Math.floor(Math.random() * 5);
 
-  baseScore += matchedTech * 5 + matchedMarket * 2 + matchedInnovation * 3;
-  baseScore += noveltyBoost + wordBonus;
+  baseScore += matchedTech * (3 + Math.floor(Math.random() * 3));
+  baseScore += matchedMarket * (2 + Math.floor(Math.random() * 2));
+  baseScore += matchedInnovation * (2 + Math.floor(Math.random() * 3));
+
+  baseScore += noveltyBoost + wordBonus + randomFactor;
   baseScore -= impactPenalty;
 
   if (baseScore > 95) baseScore = 95;
@@ -113,22 +107,18 @@ function calculatePatentScore(abstractText) {
 
   return {
     totalScore: Math.round(baseScore),
-    novelty: matchedTech * 5 + noveltyBoost + wordBonus,
-    feasibility: matchedMarket * 2,
-    impact: matchedInnovation * 3 - impactPenalty
+    novelty: matchedTech * (3 + Math.floor(Math.random() * 3)) + noveltyBoost + wordBonus,
+    feasibility: matchedMarket * (2 + Math.floor(Math.random() * 2)),
+    impact: matchedInnovation * (2 + Math.floor(Math.random() * 3)) - impactPenalty
   };
 }
 
 // -------------------------
-// Loan Logic (Only 80+)
+// Loan Logic
 // -------------------------
 function calculateLoanAmount(score) {
   if (score < 80) return 0;
-
-  let baseLoan = score >= 90 ? 98000 : 85000;
-
-  // deterministic factor removed for repeatability
-  return Math.round(baseLoan);
+  return score >= 90 ? 98000 : 85000;
 }
 
 // -------------------------
@@ -154,7 +144,7 @@ app.post("/submit", async (req, res) => {
     // Eligibility Status Logic
     let eligibilityStatus;
     if (patentScore >= 80) eligibilityStatus = "Eligible for Startup Funding ✅";
-    else if (patentScore >= 70 && patentScore <= 79) eligibilityStatus = "Needs Improvement ⚠️";
+    else if (patentScore >= 70) eligibilityStatus = "Needs Improvement ⚠️";
     else eligibilityStatus = "Not Eligible ❌";
 
     // Save to Supabase
@@ -193,12 +183,10 @@ app.post("/submit", async (req, res) => {
 
 // -------------------------
 // PDF Certificate Generator
-// -------------------------
 app.get("/certificate/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Fetch submission from Supabase
     const { data, error } = await supabase
       .from("Invention_Submissions")
       .select("*")
@@ -211,7 +199,6 @@ app.get("/certificate/:id", async (req, res) => {
 
     const doc = new jsPDF();
 
-    // Branding & Header
     doc.setFontSize(22);
     doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
 
@@ -219,7 +206,6 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text(`Student: ${data.student_name}`, 20, 60);
     doc.text(`Invention: ${data.invention_title}`, 20, 70);
 
-    // Scores
     doc.text("Scores:", 20, 90);
     doc.text(`Novelty: ${data.novelty_score}`, 30, 100);
     doc.text(`Feasibility: ${data.feasibility_score}`, 30, 110);
@@ -227,14 +213,11 @@ app.get("/certificate/:id", async (req, res) => {
 
     doc.text(`Total Patent Score: ${data.patent_score}`, 20, 140);
 
-    // QR Code linking to /verify
     const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
     const qrImage = await QRCode.toDataURL(qrData);
-
     doc.addImage(qrImage, "PNG", 150, 60, 50, 50);
     doc.text("Scan QR for Verification", 150, 120);
 
-    // Footer
     doc.setFontSize(10);
     doc.text("SISFS © 2026", 105, 290, { align: "center" });
 
@@ -249,8 +232,6 @@ app.get("/certificate/:id", async (req, res) => {
   }
 });
 
-// -------------------------
-// Start Server
 // -------------------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
