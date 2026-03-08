@@ -4,17 +4,27 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
+    "compromise": "^14.15.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShravaniBannore/logic-layer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ShravaniBannore/logic-layer/issues"
+  },
+  "homepage": "https://github.com/ShravaniBannore/logic-layer#readme"
 }
