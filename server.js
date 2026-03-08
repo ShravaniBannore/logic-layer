@@ -7,7 +7,6 @@ const jsPDF = require("jspdf");
 const QRCode = require("qrcode");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
@@ -56,53 +55,51 @@ const vagueWords = [
 const structuralVerbs = ["method","apparatus","system","process"];
 
 // -------------------------
-// Dynamic Patent Scoring
-// -------------------------
+// Dynamic Patent Scoring (Case-insensitive)
 function calculatePatentScore(abstractText) {
   const text = abstractText.toLowerCase(); // case-insensitive
   const words = text.trim().split(/\s+/);
 
   let baseScore = 50;
 
-  // Keyword matching (dynamic factor added)
-  const matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
-  const matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
-  const matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
+  // Keyword matching dynamically
+  const matchedTech = technicalKeywords.filter(k => text.includes(k.toLowerCase())).length;
+  const matchedMarket = marketKeywords.filter(k => text.includes(k.toLowerCase())).length;
+  const matchedInnovation = innovationKeywords.filter(k => text.includes(k.toLowerCase())).length;
 
   // Novelty Boost: technical + structural verb
   let noveltyBoost = 0;
   technicalKeywords.forEach(tech => {
     structuralVerbs.forEach(verb => {
-      if (text.includes(tech) && text.includes(verb)) {
-        noveltyBoost += Math.floor(Math.random() * 5 + 3); // dynamic boost
+      if (text.includes(tech.toLowerCase()) && text.includes(verb.toLowerCase())) {
+        noveltyBoost += Math.floor(Math.random() * 5 + 3); // dynamic
       }
     });
   });
 
-  // Impact Penalty: vague/common words
+  // Impact Penalty: vague/common words dynamically
   let impactPenalty = 0;
   vagueWords.forEach(v => {
-    if (text.includes(v)) impactPenalty += Math.floor(Math.random() * 3 + 1); // dynamic penalty
+    if (text.includes(v.toLowerCase())) impactPenalty += Math.floor(Math.random() * 3 + 1);
   });
 
-  // Word count bonus (dynamic)
+  // Word count bonus
   const wordCount = words.length;
   let wordBonus = 0;
   if (wordCount > 150) wordBonus = Math.floor(Math.random() * 6 + 5);
   else if (wordCount > 100) wordBonus = Math.floor(Math.random() * 4 + 3);
   else if (wordCount > 60) wordBonus = Math.floor(Math.random() * 3 + 2);
 
-  // Dynamic "random factor" added for final score
+  // Dynamic random factor
   const randomFactor = Math.floor(Math.random() * 5);
 
   baseScore += matchedTech * (3 + Math.floor(Math.random() * 3));
   baseScore += matchedMarket * (2 + Math.floor(Math.random() * 2));
   baseScore += matchedInnovation * (2 + Math.floor(Math.random() * 3));
-
   baseScore += noveltyBoost + wordBonus + randomFactor;
   baseScore -= impactPenalty;
 
-  if (baseScore > 95) baseScore = 95;
+  // Remove hard cap to allow true dynamics
   if (baseScore < 0) baseScore = 0;
 
   return {
@@ -114,21 +111,23 @@ function calculatePatentScore(abstractText) {
 }
 
 // -------------------------
-// Loan Logic
-// -------------------------
+// Loan Logic (Dynamic if score >= 80)
 function calculateLoanAmount(score) {
   if (score < 80) return 0;
-  return score >= 90 ? 98000 : 85000;
+
+  let baseLoan = score >= 90 ? 98000 : 85000;
+
+  // Add slight dynamic factor
+  const randomFactor = Math.floor(Math.random() * 5000); // up to 5k variation
+  return baseLoan + randomFactor;
 }
 
 // -------------------------
 // Routes
-// -------------------------
 app.get("/", (req, res) => {
   res.send("Logic Layer Running 🚀");
 });
 
-// Submission Route
 app.post("/submit", async (req, res) => {
   try {
     const { student_name, invention_title, abstract_text } = req.body;
@@ -141,10 +140,9 @@ app.post("/submit", async (req, res) => {
     const patentScore = scores.totalScore;
     const loanAmount = calculateLoanAmount(patentScore);
 
-    // Eligibility Status Logic
     let eligibilityStatus;
     if (patentScore >= 80) eligibilityStatus = "Eligible for Startup Funding ✅";
-    else if (patentScore >= 70) eligibilityStatus = "Needs Improvement ⚠️";
+    else if (patentScore >= 70 && patentScore <= 79) eligibilityStatus = "Needs Improvement ⚠️";
     else eligibilityStatus = "Not Eligible ❌";
 
     // Save to Supabase
@@ -198,10 +196,8 @@ app.get("/certificate/:id", async (req, res) => {
     }
 
     const doc = new jsPDF();
-
     doc.setFontSize(22);
     doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
-
     doc.setFontSize(16);
     doc.text(`Student: ${data.student_name}`, 20, 60);
     doc.text(`Invention: ${data.invention_title}`, 20, 70);
@@ -210,7 +206,6 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text(`Novelty: ${data.novelty_score}`, 30, 100);
     doc.text(`Feasibility: ${data.feasibility_score}`, 30, 110);
     doc.text(`Impact: ${data.impact_score}`, 30, 120);
-
     doc.text(`Total Patent Score: ${data.patent_score}`, 20, 140);
 
     const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
@@ -222,7 +217,6 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text("SISFS © 2026", 105, 290, { align: "center" });
 
     const pdfBuffer = doc.output("arraybuffer");
-
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="certificate_${id}.pdf"`);
     res.send(Buffer.from(pdfBuffer));
