@@ -31,15 +31,17 @@ const noveltyKeywords = [
   "breakthrough","disruptive","next-generation","cutting-edge",
   "autonomous","self-learning","adaptive","intelligent",
   "bio-inspired","cognitive","predictive","decentralized",
-  "self-optimizing","generative","synthetic","neuromorphic"
+  "self-optimizing","generative","synthetic","neuromorphic",
+  "nanorobotics","molecular assembly","AI","proprietary algorithm"
 ];
 
 const feasibilityKeywords = [
-  "artificial intelligence","machine learning","deep learning",
+  "AI","artificial intelligence","machine learning","deep learning",
   "neural networks","edge computing","distributed systems",
   "sensor fusion","robotics","computer vision","nlp",
   "blockchain","cloud computing","embedded systems",
-  "autonomous systems","cyber physical systems"
+  "autonomous systems","cyber physical systems","neuromorphic computing",
+  "nanorobotics","proprietary algorithm","system architecture"
 ];
 
 const impactKeywords = [
@@ -48,9 +50,18 @@ const impactKeywords = [
   "advanced manufacturing","smart grid",
   "precision agriculture","intelligent transportation",
   "sustainable energy","climate technology",
-  "space technology","biomedical innovation",
-  "defense technology","high-performance computing"
+  "space technology","biomedical innovation","healthcare",
+  "biomedical","defense technology","high-performance computing"
 ];
+
+const advancedTechKeywords = [
+"quantum computing","nanotechnology","biotechnology",
+"genetic engineering","synthetic biology",
+"autonomous robotics","swarm robotics",
+"brain computer interface","neuromorphic computing",
+"fusion energy","space propulsion",
+"satellite technology","quantum cryptography"
+];  
 
 const structuralVerbs = ["Method", "Apparatus"];
 const commonWords = ["good","simple","easy","basic","normal","common","vague"];
@@ -71,28 +82,26 @@ function keywordScore(text, keywords) {
 // Novelty Score (Noun-Verb density + Structural verbs)
 // -------------------------
 function noveltyScore(text) {
-  let score = 0;
   const doc = nlp(text);
-
-  // Heuristic: complex nouns are words >5 letters tagged as nouns
   const nouns = doc.nouns().out('array');
   const complexNouns = nouns.filter(n => n.length > 5);
+  let score = 0;
 
-  // Boost if structural verbs present with complex nouns
+  // Scale boost: 5 points per complex noun if structural verb exists
   structuralVerbs.forEach(sv => {
-    if (text.toLowerCase().includes(sv.toLowerCase()) && complexNouns.length > 0) {
-      score += 10; // boost for each structural verb occurrence
+    if (text.toLowerCase().includes(sv.toLowerCase())) {
+      score += complexNouns.length * 5;
     }
   });
 
-  // Noun-Verb density: (#nouns + #verbs) / total words
+  // Noun-Verb density
   const verbs = doc.verbs().out('array');
   const words = text.split(/\s+/);
-  const density = ((nouns.length + verbs.length) / words.length) * 50; // scaled to 0-50
-  score += density;
+  score += ((nouns.length + verbs.length) / words.length) * 50;
 
-  // Include keyword-based novelty
-  score += keywordScore(text, noveltyKeywords) * 0.5; // partial contribution
+  // Add keyword-based novelty contribution
+  score += keywordScore(text, noveltyKeywords) * 0.5;
+
   return Math.min(score, 100);
 }
 
