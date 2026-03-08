@@ -38,10 +38,11 @@ const noveltyKeywords = [
 const feasibilityKeywords = [
   "AI","artificial intelligence","machine learning","deep learning",
   "neural networks","edge computing","distributed systems",
-  "sensor fusion","robotics","computer vision","nlp",
+  "sensor fusion","robotics","computer vision","NLP",
   "blockchain","cloud computing","embedded systems",
   "autonomous systems","cyber physical systems","neuromorphic computing",
-  "nanorobotics","proprietary algorithm","system architecture"
+  "nanorobotics","proprietary algorithm","system architecture",
+  "molecular assembly","targeted drug delivery","synthetic tissue"
 ];
 
 const impactKeywords = [
@@ -51,24 +52,15 @@ const impactKeywords = [
   "precision agriculture","intelligent transportation",
   "sustainable energy","climate technology",
   "space technology","biomedical innovation","healthcare",
-  "biomedical","defense technology","high-performance computing"
+  "biomedical","defense technology","high-performance computing",
+  "drug delivery","synthetic tissue","breakthrough","disruptive","next-generation"
 ];
-
-const advancedTechKeywords = [
-"quantum computing","nanotechnology","biotechnology",
-"genetic engineering","synthetic biology",
-"autonomous robotics","swarm robotics",
-"brain computer interface","neuromorphic computing",
-"fusion energy","space propulsion",
-"satellite technology","quantum cryptography"
-];  
 
 const structuralVerbs = ["Method", "Apparatus"];
 const commonWords = ["good","simple","easy","basic","normal","common","vague"];
 
 // -------------------------
 // Keyword Score Function (Case-insensitive)
-// -------------------------
 function keywordScore(text, keywords) {
   let matches = 0;
   keywords.forEach(keyword => {
@@ -80,7 +72,6 @@ function keywordScore(text, keywords) {
 
 // -------------------------
 // Novelty Score (Noun-Verb density + Structural verbs)
-// -------------------------
 function noveltyScore(text) {
   const doc = nlp(text);
   const nouns = doc.nouns().out('array');
@@ -106,13 +97,12 @@ function noveltyScore(text) {
 }
 
 // -------------------------
-// Impact Score (penalize vague/common words)
-// -------------------------
+// Impact Score (penalize vague/common words lightly)
 function impactScore(text) {
   let penalty = 0;
   commonWords.forEach(word => {
     const regex = new RegExp(`\\b${word}\\b`, "i");
-    if (regex.test(text)) penalty += 10; // penalize per occurrence
+    if (regex.test(text)) penalty += 5; // lighter penalty
   });
 
   // Keyword-based impact contribution
@@ -123,26 +113,22 @@ function impactScore(text) {
 
 // -------------------------
 // Technical / Feasibility Score
-// -------------------------
 function feasibilityScore(text) {
   return keywordScore(text, feasibilityKeywords);
 }
 
 // -------------------------
 // Combined Patent Score (40-30-30)
-// -------------------------
 function calculatePatentScore(novelty, feasibility, impact) {
   const score = novelty * 0.4 + feasibility * 0.3 + impact * 0.3;
   return Math.round(score);
 }
 
 // -------------------------
+// Deterministic Loan Calculation
 function calculateLoanAmount(score) {
   if (score < 80) return 0;
-  const maxLoan = 100000;
-  const baseLoan = score >= 90 ? 98000 : 85000;
-  const randomFactor = Math.random() * 0.02;
-  return Math.round(baseLoan + (maxLoan - baseLoan) * randomFactor);
+  return score >= 90 ? 98000 : 85000;
 }
 
 // -------------------------
@@ -183,7 +169,8 @@ app.post("/submit", async(req,res)=>{
         feasibility_score: feasibility,
         impact_score: impact,
         patent_score: patentScore,
-        loan_eligibility_amount: loanAmount
+        loan_eligibility_amount: loanAmount,
+        timestamp: new Date()
       }])
       .select();
 
@@ -206,7 +193,6 @@ app.post("/submit", async(req,res)=>{
 
 // -------------------------
 // PDF Generator
-// -------------------------
 app.get("/generate-certificate/:id", async(req,res)=>{
   try {
     const id = req.params.id;
@@ -251,7 +237,6 @@ app.get("/generate-certificate/:id", async(req,res)=>{
 
 // -------------------------
 // Verify Route
-// -------------------------
 app.get("/verify", async(req,res)=>{
   const id = req.query.id;
 
