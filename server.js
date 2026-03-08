@@ -56,23 +56,29 @@ const structuralVerbs = ["method","apparatus","system","process"];
 
 // -------------------------
 // Patent Scoring (Dynamic & Case-insensitive)
+// -------------------------
+// Dynamic Patent Scoring
 function calculatePatentScore(abstractText) {
   const text = abstractText.toLowerCase();
   const words = text.trim().split(/\s+/);
 
-  let baseScore = 50;
-
-  // Keyword counts
+  // Keyword matches
   const matchedTech = technicalKeywords.filter(k => text.includes(k.toLowerCase())).length;
   const matchedMarket = marketKeywords.filter(k => text.includes(k.toLowerCase())).length;
   const matchedInnovation = innovationKeywords.filter(k => text.includes(k.toLowerCase())).length;
+
+  // Word count bonus
+  let wordBonus = 0;
+  if (words.length > 150) wordBonus = 8;
+  else if (words.length > 100) wordBonus = 5;
+  else if (words.length > 60) wordBonus = 3;
 
   // Novelty Boost
   let noveltyBoost = 0;
   technicalKeywords.forEach(tech => {
     structuralVerbs.forEach(verb => {
       if (text.includes(tech.toLowerCase()) && text.includes(verb.toLowerCase())) {
-        noveltyBoost += Math.floor(Math.random() * 3 + 2); // small dynamic boost
+        noveltyBoost += 3;
       }
     });
   });
@@ -80,31 +86,25 @@ function calculatePatentScore(abstractText) {
   // Impact Penalty
   let impactPenalty = 0;
   vagueWords.forEach(v => {
-    if (text.includes(v.toLowerCase())) impactPenalty += Math.floor(Math.random() * 2 + 1);
+    if (text.includes(v.toLowerCase())) impactPenalty += 1;
   });
 
-  // Word count bonus
-  let wordBonus = 0;
-  if (words.length > 150) wordBonus = Math.floor(Math.random() * 5 + 3);
-  else if (words.length > 100) wordBonus = Math.floor(Math.random() * 3 + 2);
-  else if (words.length > 60) wordBonus = Math.floor(Math.random() * 2 + 1);
+  // Base weighted scores
+  let noveltyScore = matchedTech * 5 + noveltyBoost + wordBonus;
+  let feasibilityScore = matchedMarket * 3;
+  let impactScore = matchedInnovation * 4 - impactPenalty;
 
-  // Keyword contributions
-  let noveltyScore = matchedTech * (3 + Math.floor(Math.random() * 2)) + noveltyBoost + wordBonus;
-  let feasibilityScore = matchedMarket * (2 + Math.floor(Math.random() * 1));
-  let impactScore = matchedInnovation * (2 + Math.floor(Math.random() * 2)) - impactPenalty;
-
-  // Total patent score weighted
+  // Weighted total
   let totalScore = Math.round(
-    (noveltyScore * 0.4) + (feasibilityScore * 0.3) + (impactScore * 0.3)
+    noveltyScore * 0.4 + feasibilityScore * 0.3 + impactScore * 0.3
   );
 
-  // Cap total score at 100
-  if(totalScore > 100) totalScore = 100;
-  if(totalScore < 0) totalScore = 0;
+  // Minimum baseline 35, maximum 100
+  if (totalScore < 35) totalScore = 35;
+  if (totalScore > 100) totalScore = 100;
 
-  // Scale individual components proportionally if needed
-  const scaleFactor = totalScore / ((noveltyScore * 0.4) + (feasibilityScore * 0.3) + (impactScore * 0.3) || 1);
+  // Scale individual components proportionally
+  const scaleFactor = totalScore / ((noveltyScore*0.4 + feasibilityScore*0.3 + impactScore*0.3) || 1);
   noveltyScore = Math.round(noveltyScore * scaleFactor);
   feasibilityScore = Math.round(feasibilityScore * scaleFactor);
   impactScore = Math.round(impactScore * scaleFactor);
