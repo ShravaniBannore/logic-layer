@@ -51,19 +51,23 @@ const impactKeywords = [
 
 function keywordScore(text, keywords){
 
-  let score = 0;
+  let matches = 0;
 
   keywords.forEach(keyword => {
 
-    const regex = new RegExp(keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), "i");
+    const regex = new RegExp(
+      keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'),
+      "i"
+    );
 
-    if(regex.test(text)) score += 10;
+    if(regex.test(text)) matches++;
 
   });
 
-  if(score > 100) score = 100;
+  const score = Math.round((matches / keywords.length) * 100);
 
   return score;
+
 }
 
 // -------------------------
