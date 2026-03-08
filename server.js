@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const { createClient } = require("@supabase/supabase-js");
-const PDFDocument = require("pdfkit");
+const jsPDF = require("jspdf");
 const QRCode = require("qrcode");
 
 const app = express();
@@ -12,301 +12,247 @@ app.use(cors());
 app.use(express.json());
 
 // -------------------------
+// Supabase Client
+// -------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // -------------------------
+// AI Evaluation Weightage Model
+// -------------------------
 const evaluationWeightage = {
-  novelty: "30%",
-  feasibility: "30%",
-  impact: "40%"
+  technical_keywords: "40%",
+  market_need: "30%",
+  innovation_depth: "30%"
 };
 
 // -------------------------
-// Keyword Groups
+// Deterministic PRNG for repeatability
 // -------------------------
-
-const noveltyKeywords = [
-"breakthrough","disruptive","next-generation","cutting-edge",
-"autonomous","self-learning","adaptive","intelligent",
-"bio-inspired","cognitive","predictive","decentralized",
-"self-optimizing","generative","synthetic","neuromorphic"
-];
-
-const feasibilityKeywords = [
-"artificial intelligence","machine learning","deep learning",
-"neural networks","edge computing","distributed systems",
-"sensor fusion","robotics","computer vision","nlp",
-"blockchain","cloud computing","embedded systems",
-"autonomous systems","cyber physical systems"
-];
-
-const impactKeywords = [
-"smart infrastructure","industrial automation",
-"energy optimization","digital transformation",
-"advanced manufacturing","smart grid",
-"precision agriculture","intelligent transportation",
-"sustainable energy","climate technology",
-"space technology","biomedical innovation",
-"defense technology","high-performance computing"
-];
-
-const advancedTechKeywords = [
-"quantum computing","nanotechnology","biotechnology",
-"genetic engineering","synthetic biology",
-"autonomous robotics","swarm robotics",
-"brain computer interface","neuromorphic computing",
-"fusion energy","space propulsion",
-"satellite technology","quantum cryptography"
-];  
+function deterministicRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
 
 // -------------------------
-// Keyword Score Function
+// Keyword & Noun-Verb Lists
 // -------------------------
+const technicalKeywords = [
+  "ai","ai-driven","neural","neural-network","machine learning",
+  "deep learning","iot","sensors","automation","algorithm",
+  "blockchain","decentralized","scalable","edge computing",
+  "system architecture","proprietary algorithms","advanced materials"
+];
 
-function keywordScore(text, keywords){
+const marketKeywords = [
+  "market","industry","b2b","commercial","scaling",
+  "revenue","efficiency","optimization","cost reduction"
+];
 
-  let matches = 0;
+const innovationKeywords = [
+  "novel","innovative","breakthrough","proprietary",
+  "next-generation","risk mitigation","sustainable",
+  "hydroponic","bionic","renewable","eco-friendly"
+];
 
-  keywords.forEach(keyword => {
+const vagueWords = [
+  "good","nice","thing","stuff","maybe","some","many","various"
+];
 
-    const regex = new RegExp(
-      keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'),
-      "i"
-    );
+const structuralVerbs = ["method","apparatus","system","process"];
 
-    if(regex.test(text)) matches++;
+// -------------------------
+// Patent Scoring
+// -------------------------
+function calculatePatentScore(abstractText) {
+  const text = abstractText.toLowerCase(); // case-insensitive
+  const words = text.trim().split(/\s+/);
 
+  let baseScore = 50;
+
+  // Keyword matching
+  let matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
+  let matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
+  let matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
+
+  // Novelty Boost: technical + structural verb
+  let noveltyBoost = 0;
+  technicalKeywords.forEach(tech => {
+    structuralVerbs.forEach(verb => {
+      if (text.includes(tech) && text.includes(verb)) {
+        noveltyBoost += 5; // boost novelty
+      }
+    });
   });
 
-  const score = Math.round((matches / keywords.length) * 100);
+  // Impact Penalty: vague/common words
+  let impactPenalty = 0;
+  vagueWords.forEach(v => {
+    if (text.includes(v)) impactPenalty += 2;
+  });
 
-  return score;
+  // Word count bonus
+  const wordCount = words.length;
+  let wordBonus = 0;
+  if (wordCount > 150) wordBonus = 10;
+  else if (wordCount > 100) wordBonus = 7;
+  else if (wordCount > 60) wordBonus = 5;
 
+  // Deterministic "random factor"
+  const seed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const randomFactor = deterministicRandom(seed);
+
+  baseScore += matchedTech * 5 + matchedMarket * 2 + matchedInnovation * 3;
+  baseScore += noveltyBoost + wordBonus;
+  baseScore -= impactPenalty;
+
+  if (baseScore > 95) baseScore = 95;
+  if (baseScore < 0) baseScore = 0;
+
+  return {
+    totalScore: Math.round(baseScore),
+    novelty: matchedTech * 5 + noveltyBoost + wordBonus,
+    feasibility: matchedMarket * 2,
+    impact: matchedInnovation * 3 - impactPenalty
+  };
 }
 
 // -------------------------
-// Patent Score
+// Loan Logic (Only 80+)
 // -------------------------
+function calculateLoanAmount(score) {
+  if (score < 80) return 0;
 
-function calculatePatentScore(novelty,feasibility,impact){
+  let baseLoan = score >= 90 ? 98000 : 85000;
 
-  const score =
-    novelty * 0.3 +
-    feasibility * 0.3 +
-    impact * 0.4;
-
-  return Math.round(score);
+  // deterministic factor removed for repeatability
+  return Math.round(baseLoan);
 }
 
 // -------------------------
-function calculateLoanAmount(score){
-
-  if(score < 80) return 0;
-
-  const maxLoan = 100000;
-
-  let baseLoan;
-
-  if(score >= 90) baseLoan = 98000;
-  else baseLoan = 85000;
-
-  const randomFactor = Math.random()*0.02;
-
-  return Math.round(baseLoan + (maxLoan-baseLoan)*randomFactor);
-
-}
-
+// Routes
 // -------------------------
-app.get("/", (req,res)=>{
+app.get("/", (req, res) => {
   res.send("Logic Layer Running 🚀");
 });
 
-// -------------------------
-app.post("/submit", async(req,res)=>{
+// Submission Route
+app.post("/submit", async (req, res) => {
+  try {
+    const { student_name, invention_title, abstract_text } = req.body;
 
-try{
+    if (!student_name || !invention_title || !abstract_text) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
-const {student_name,invention_title,abstract_text} = req.body;
+    const scores = calculatePatentScore(abstract_text);
+    const patentScore = scores.totalScore;
+    const loanAmount = calculateLoanAmount(patentScore);
 
-if(!student_name || !invention_title || !abstract_text){
-return res.status(400).json({error:"Missing required fields"});
-}
+    // Eligibility Status Logic
+    let eligibilityStatus;
+    if (patentScore >= 80) eligibilityStatus = "Eligible for Startup Funding ✅";
+    else if (patentScore >= 70 && patentScore <= 79) eligibilityStatus = "Needs Improvement ⚠️";
+    else eligibilityStatus = "Not Eligible ❌";
 
-const text = abstract_text.toLowerCase();
+    // Save to Supabase
+    const { data, error } = await supabase
+      .from("Invention_Submissions")
+      .insert([{
+        student_name,
+        invention_title,
+        abstract_text,
+        patent_score: patentScore,
+        loan_eligibility_amount: loanAmount,
+        novelty_score: scores.novelty,
+        feasibility_score: scores.feasibility,
+        impact_score: scores.impact
+      }])
+      .select();
 
-const noveltyScore = keywordScore(text,noveltyKeywords);
-const feasibilityScore = keywordScore(text,feasibilityKeywords);
-const impactScore = keywordScore(text,impactKeywords);
+    if (error) return res.status(500).json({ error: error.message });
 
-const patentScore = calculatePatentScore(
-noveltyScore,
-feasibilityScore,
-impactScore
-);
+    res.status(200).json({
+      status: "success",
+      patent_score: patentScore,
+      loan_eligibility_amount: loanAmount,
+      eligibility_status: eligibilityStatus,
+      evaluation_model: {
+        model_name: "Neural Innovation Scoring Engine",
+        weightage: evaluationWeightage
+      },
+      data
+    });
 
-const loanAmount = calculateLoanAmount(patentScore);
-
-let eligibilityStatus;
-
-if(patentScore>=80)
-eligibilityStatus="Eligible for Startup Funding ✅";
-
-else if(patentScore>=70)
-eligibilityStatus="Needs Improvement ⚠️";
-
-else
-eligibilityStatus="Not Eligible ❌";
-
-// -------------------------
-const {data,error} = await supabase
-.from("Invention_Submissions")
-.insert([{
-student_name,
-invention_title,
-abstract_text,
-novelty_score:noveltyScore,
-feasibility_score:feasibilityScore,
-impact_score:impactScore,
-patent_score:patentScore,
-loan_eligibility_amount:loanAmount
-}])
-.select();
-
-if(error){
-return res.status(500).json({error:error.message});
-}
-
-// -------------------------
-res.status(200).json({
-
-status:"success",
-
-scores:{
-novelty:noveltyScore,
-feasibility:feasibilityScore,
-impact:impactScore
-},
-
-patent_score:patentScore,
-loan_eligibility_amount:loanAmount,
-eligibility_status:eligibilityStatus,
-
-evaluation_model:{
-model_name:"Neural Innovation Scoring Engine",
-weightage:evaluationWeightage
-},
-
-data
-
-});
-
-}catch(err){
-res.status(500).json({error:err.message});
-}
-
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // -------------------------
-// PDF Generator
+// PDF Certificate Generator
 // -------------------------
+app.get("/certificate/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-app.get("/generate-certificate/:id", async(req,res)=>{
+    // Fetch submission from Supabase
+    const { data, error } = await supabase
+      .from("Invention_Submissions")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-try{
+    if (error || !data) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
 
-const id = req.params.id;
+    const doc = new jsPDF();
 
-const {data,error} = await supabase
-.from("Invention_Submissions")
-.select("*")
-.eq("id",id)
-.single();
+    // Branding & Header
+    doc.setFontSize(22);
+    doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
 
-if(error){
-return res.status(500).json({error:error.message});
-}
+    doc.setFontSize(16);
+    doc.text(`Student: ${data.student_name}`, 20, 60);
+    doc.text(`Invention: ${data.invention_title}`, 20, 70);
 
-const verifyURL = `http://localhost:5000/verify?id=${id}`;
+    // Scores
+    doc.text("Scores:", 20, 90);
+    doc.text(`Novelty: ${data.novelty_score}`, 30, 100);
+    doc.text(`Feasibility: ${data.feasibility_score}`, 30, 110);
+    doc.text(`Impact: ${data.impact_score}`, 30, 120);
 
-const qr = await QRCode.toDataURL(verifyURL);
+    doc.text(`Total Patent Score: ${data.patent_score}`, 20, 140);
 
-const qrBuffer = Buffer.from(qr.split(",")[1], "base64");
+    // QR Code linking to /verify
+    const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
+    const qrImage = await QRCode.toDataURL(qrData);
 
-const doc = new PDFDocument();
+    doc.addImage(qrImage, "PNG", 150, 60, 50, 50);
+    doc.text("Scan QR for Verification", 150, 120);
 
-res.setHeader("Content-Type","application/pdf");
+    // Footer
+    doc.setFontSize(10);
+    doc.text("SISFS © 2026", 105, 290, { align: "center" });
 
-res.setHeader(
-"Content-Disposition",
-`attachment; filename=innovation_certificate_${id}.pdf`
-);
+    const pdfBuffer = doc.output("arraybuffer");
 
-doc.pipe(res);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="certificate_${id}.pdf"`);
+    res.send(Buffer.from(pdfBuffer));
 
-doc.fontSize(24).text("Innovation Certificate",{align:"center"});
-doc.moveDown();
-
-doc.fontSize(14).text(`Student Name: ${data.student_name}`);
-doc.text(`Invention Title: ${data.invention_title}`);
-
-doc.moveDown();
-
-doc.text(`Novelty Score: ${data.novelty_score}`);
-doc.text(`Feasibility Score: ${data.feasibility_score}`);
-doc.text(`Impact Score: ${data.impact_score}`);
-
-doc.moveDown();
-
-doc.text(`Final Patent Score: ${data.patent_score}`);
-
-doc.text(`Funding Eligibility: Rs ${data.loan_eligibility_amount}`);
-
-doc.moveDown();
-
-doc.text("Scan QR to Verify");
-
-doc.image(qrBuffer,{fit:[120,120],align:"center"});
-
-doc.end();
-
-}catch(err){
-res.status(500).json({error:err.message});
-}
-
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // -------------------------
-// VERIFY ROUTE (FIXED)
-// -------------------------
-
-app.get("/verify",async(req,res)=>{
-
-const id = req.query.id;
-
-const {data,error} = await supabase
-.from("Invention_Submissions")
-.select("*")
-.eq("id", id)
-.single();
-
-if(error)
-return res.status(404).send("Certificate Not Found");
-
-res.json({
-status:"verified",
-student_name:data.student_name,
-invention_title:data.invention_title,
-patent_score:data.patent_score
-});
-
-});
-
+// Start Server
 // -------------------------
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT,()=>{
-console.log(`Server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
