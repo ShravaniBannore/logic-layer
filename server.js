@@ -28,7 +28,7 @@ const evaluationWeightage = {
 };
 
 // -------------------------
-// Keyword & Noun-Verb Lists
+// Keyword Lists
 // -------------------------
 const technicalKeywords = [
   "ai","ai-driven","neural","neural-network","machine learning",
@@ -57,12 +57,12 @@ const structuralVerbs = ["method","apparatus","system","process"];
 // -------------------------
 // Dynamic Patent Scoring (Case-insensitive)
 function calculatePatentScore(abstractText) {
-  const text = abstractText.toLowerCase(); // case-insensitive
+  const text = abstractText.toLowerCase();
   const words = text.trim().split(/\s+/);
 
   let baseScore = 50;
 
-  // Keyword matching dynamically
+  // Keyword matches
   const matchedTech = technicalKeywords.filter(k => text.includes(k.toLowerCase())).length;
   const matchedMarket = marketKeywords.filter(k => text.includes(k.toLowerCase())).length;
   const matchedInnovation = innovationKeywords.filter(k => text.includes(k.toLowerCase())).length;
@@ -72,12 +72,12 @@ function calculatePatentScore(abstractText) {
   technicalKeywords.forEach(tech => {
     structuralVerbs.forEach(verb => {
       if (text.includes(tech.toLowerCase()) && text.includes(verb.toLowerCase())) {
-        noveltyBoost += Math.floor(Math.random() * 5 + 3); // dynamic
+        noveltyBoost += Math.floor(Math.random() * 5 + 3);
       }
     });
   });
 
-  // Impact Penalty: vague/common words dynamically
+  // Impact Penalty: vague words
   let impactPenalty = 0;
   vagueWords.forEach(v => {
     if (text.includes(v.toLowerCase())) impactPenalty += Math.floor(Math.random() * 3 + 1);
@@ -99,7 +99,6 @@ function calculatePatentScore(abstractText) {
   baseScore += noveltyBoost + wordBonus + randomFactor;
   baseScore -= impactPenalty;
 
-  // Remove hard cap to allow true dynamics
   if (baseScore < 0) baseScore = 0;
 
   return {
@@ -111,15 +110,16 @@ function calculatePatentScore(abstractText) {
 }
 
 // -------------------------
-// Loan Logic (Dynamic if score >= 80)
+// Loan Logic (Max 1 Lakh)
 function calculateLoanAmount(score) {
   if (score < 80) return 0;
 
   let baseLoan = score >= 90 ? 98000 : 85000;
+  const randomFactor = Math.floor(Math.random() * 2000); // ±2k variation
+  let finalLoan = baseLoan + randomFactor;
 
-  // Add slight dynamic factor
-  const randomFactor = Math.floor(Math.random() * 5000); // up to 5k variation
-  return baseLoan + randomFactor;
+  if (finalLoan > 100000) finalLoan = 100000;
+  return finalLoan;
 }
 
 // -------------------------
@@ -132,9 +132,8 @@ app.post("/submit", async (req, res) => {
   try {
     const { student_name, invention_title, abstract_text } = req.body;
 
-    if (!student_name || !invention_title || !abstract_text) {
+    if (!student_name || !invention_title || !abstract_text)
       return res.status(400).json({ error: "Missing required fields" });
-    }
 
     const scores = calculatePatentScore(abstract_text);
     const patentScore = scores.totalScore;
@@ -180,7 +179,7 @@ app.post("/submit", async (req, res) => {
 });
 
 // -------------------------
-// PDF Certificate Generator
+// PDF Certificate
 app.get("/certificate/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -191,9 +190,7 @@ app.get("/certificate/:id", async (req, res) => {
       .eq("id", id)
       .single();
 
-    if (error || !data) {
-      return res.status(404).json({ error: "Submission not found" });
-    }
+    if (error || !data) return res.status(404).json({ error: "Submission not found" });
 
     const doc = new jsPDF();
     doc.setFontSize(22);
@@ -228,6 +225,4 @@ app.get("/certificate/:id", async (req, res) => {
 
 // -------------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
