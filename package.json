@@ -11,14 +11,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@supabase/supabase-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.99.0",
     "compromise": "^14.15.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jspdf": "^4.2.0",
     "pdfkit": "^0.17.2",
-    "qrcode": "^1.5.4"
+    "puppeteer": "^24.38.0",
+    "qrcode": "^1.5.4",
+    "uuid": "^13.0.0"
   },
   "repository": {
     "type": "git",

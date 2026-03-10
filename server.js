@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const { createClient } = require("@supabase/supabase-js");
-const jsPDF = require("jspdf");
+const { jsPDF } = require("jspdf");
 const QRCode = require("qrcode");
 
 const app = express();
@@ -29,15 +29,11 @@ const evaluationWeightage = {
 };
 
 // -------------------------
-// Deterministic Random Generator
-// -------------------------
 function deterministicRandom(seed) {
   let x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
 
-// -------------------------
-// Keyword & Noun-Verb Lists
 // -------------------------
 const technicalKeywords = [
   "ai","ai-driven","neural","neural-network","machine learning",
@@ -116,15 +112,10 @@ function calculatePatentScore(abstractText) {
   if (baseScore > 95) baseScore = 95;
   if (baseScore < 0) baseScore = 0;
 
-  // -------------------------
-  // CATEGORY SCORES
-  // -------------------------
-
   let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
   let feasibility = matchedMarket * 2;
   let impact = matchedInnovation * 3 - impactPenalty;
 
-  // LIMIT FIX
   novelty = Math.min(novelty, 40);
   feasibility = Math.min(feasibility, 30);
   impact = Math.min(impact, 30);
@@ -137,8 +128,9 @@ function calculatePatentScore(abstractText) {
   };
 
 }
+
 // -------------------------
-// Loan Logic (Only 80+)
+// Loan Logic
 // -------------------------
 function calculateLoanAmount(score, abstractText) {
 
@@ -153,7 +145,6 @@ function calculateLoanAmount(score, abstractText) {
 
   let finalLoan = baseLoan + randomVariation;
 
-  // hard cap at 1 lakh
   if (finalLoan > 100000) finalLoan = 100000;
 
   return Math.round(finalLoan);
@@ -161,13 +152,13 @@ function calculateLoanAmount(score, abstractText) {
 }
 
 // -------------------------
-// Routes
-// -------------------------
 app.get("/", (req, res) => {
   res.send("Logic Layer Running 🚀");
 });
 
+// -------------------------
 // Submission Route
+// -------------------------
 app.post("/submit", async (req, res) => {
 
   try {
@@ -244,33 +235,46 @@ app.get("/certificate/:id", async (req, res) => {
 
     const doc = new jsPDF();
 
-    doc.setFontSize(22);
+    // Title
+    doc.setFontSize(24);
     doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
 
+    doc.setFontSize(14);
+    doc.text("This certifies that", 105, 50, { align: "center" });
+
+    doc.setFontSize(18);
+    doc.text(`${data.student_name}`, 105, 65, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text("has submitted the innovation titled:", 105, 80, { align: "center" });
+
     doc.setFontSize(16);
-    doc.text(`Student: ${data.student_name}`, 20, 60);
-    doc.text(`Invention: ${data.invention_title}`, 20, 70);
+    doc.text(`${data.invention_title}`, 105, 95, { align: "center" });
 
-    doc.text("Scores:", 20, 90);
-    doc.text(`Novelty: ${data.novelty_score}`, 30, 100);
-    doc.text(`Feasibility: ${data.feasibility_score}`, 30, 110);
-    doc.text(`Impact: ${data.impact_score}`, 30, 120);
+    doc.setFontSize(14);
+    doc.text("Evaluation Scores", 105, 120, { align: "center" });
 
-    doc.text(`Total Patent Score: ${data.patent_score}`, 20, 140);
+    doc.text(`Novelty: ${data.novelty_score} / 40`, 40, 140);
+    doc.text(`Feasibility: ${data.feasibility_score} / 30`, 40, 150);
+    doc.text(`Impact: ${data.impact_score} / 30`, 40, 160);
 
+    doc.text(`Total Patent Score: ${data.patent_score}`, 40, 180);
+
+    // QR Code
     const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
     const qrImage = await QRCode.toDataURL(qrData);
 
-    doc.addImage(qrImage, "PNG", 150, 60, 50, 50);
-    doc.text("Scan QR for Verification", 150, 120);
+    doc.addImage(qrImage, "PNG", 150, 130, 40, 40);
 
     doc.setFontSize(10);
-    doc.text("SISFS © 2026", 105, 290, { align: "center" });
+    doc.text("Scan QR to verify certificate", 150, 175);
+
+    doc.text("SISFS Innovation Program © 2026", 105, 290, { align: "center" });
 
     const pdfBuffer = doc.output("arraybuffer");
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="certificate_${id}.pdf"`);
+    res.setHeader("Content-Disposition", `attachment; filename=certificate_${id}.pdf`);
 
     res.send(Buffer.from(pdfBuffer));
 
