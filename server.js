@@ -113,12 +113,30 @@ function calculatePatentScore(abstractText) {
   if (baseScore < 0) baseScore = 0;
 
   let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
-  let feasibility = matchedMarket * 2;
-  let impact = matchedInnovation * 3 - impactPenalty;
+let feasibility = matchedMarket * 2;
+let impact = matchedInnovation * 3 - impactPenalty;
 
-  novelty = Math.min(novelty, 40);
-  feasibility = Math.min(feasibility, 30);
-  impact = Math.min(impact, 30);
+// -------------------------
+// Minimum baseline scoring (so scores never become 0)
+// -------------------------
+
+if (novelty === 0) {
+  novelty = Math.min(Math.floor(wordCount / 10), 15);
+}
+
+if (feasibility === 0) {
+  feasibility = Math.min(Math.floor(wordCount / 12), 12);
+}
+
+if (impact <= 0) {
+  impact = Math.min(Math.floor(wordCount / 15), 10);
+}
+
+// -------------------------
+
+novelty = Math.min(novelty, 40);
+feasibility = Math.min(feasibility, 30);
+impact = Math.min(impact, 30);
 
   return {
     totalScore: Math.round(baseScore),
