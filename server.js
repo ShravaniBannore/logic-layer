@@ -249,7 +249,10 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text("has submitted the innovation titled:", 105, 80, { align: "center" });
 
     doc.setFontSize(16);
-    doc.text(`${data.invention_title}`, 105, 95, { align: "center" });
+
+const titleLines = doc.splitTextToSize(data.invention_title, 160);
+
+doc.text(titleLines, 105, 95, { align: "center" });
 
     doc.setFontSize(14);
     doc.text("Evaluation Scores", 105, 120, { align: "center" });
