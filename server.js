@@ -113,8 +113,8 @@ function calculatePatentScore(abstractText) {
   if (baseScore < 0) baseScore = 0;
 
   let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
-  let feasibility = matchedMarket * 2;
-  let impact = matchedInnovation * 3 - impactPenalty;
+  let feasibility = matchedMarket * 2 + Math.floor(wordCount / 15);
+let impact = matchedInnovation * 3 + Math.floor(wordCount / 20) - impactPenalty;
 
 // -------------------------
 // Standard Innovation Fallback (Random but stable)
