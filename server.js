@@ -305,6 +305,49 @@ app.get("/certificate/:id", async (req, res) => {
 });
 
 // -------------------------
+// Certificate Verification Route
+// -------------------------
+app.get("/verify", async (req, res) => {
+
+  try {
+
+    const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).send("Invalid certificate ID");
+    }
+
+    const { data, error } = await supabase
+      .from("Invention_Submissions")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).send("Certificate not found");
+    }
+
+    res.send(`
+      <html>
+        <body style="font-family:sans-serif;text-align:center;margin-top:50px">
+          <h1>✅ Verified by NexaRise</h1>
+          <p><b>Student:</b> ${data.student_name}</p>
+          <p><b>Innovation:</b> ${data.invention_title}</p>
+          <p><b>Patent Score:</b> ${data.patent_score}</p>
+          <p><b>Loan Eligibility:</b> ₹${data.loan_eligibility_amount}</p>
+        </body>
+      </html>
+    `);
+
+  } catch (err) {
+    res.status(500).send("Verification error");
+  }
+
+});
+
+
+
+// -------------------------
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
