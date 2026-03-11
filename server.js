@@ -113,30 +113,32 @@ function calculatePatentScore(abstractText) {
   if (baseScore < 0) baseScore = 0;
 
   let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
-let feasibility = matchedMarket * 2;
-let impact = matchedInnovation * 3 - impactPenalty;
+  let feasibility = matchedMarket * 2;
+  let impact = matchedInnovation * 3 - impactPenalty;
 
 // -------------------------
-// Minimum baseline scoring (so scores never become 0)
+// Standard Innovation Fallback (Random but stable)
 // -------------------------
 
-if (novelty === 0) {
-  novelty = Math.min(Math.floor(wordCount / 10), 15);
+const fallbackSeed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+if (novelty < 5) {
+  novelty = Math.floor(deterministicRandom(fallbackSeed) * 6) + 5;
 }
 
-if (feasibility === 0) {
-  feasibility = Math.min(Math.floor(wordCount / 12), 12);
+if (feasibility < 5) {
+  feasibility = Math.floor(deterministicRandom(fallbackSeed + 1) * 6) + 5;
 }
 
-if (impact <= 0) {
-  impact = Math.min(Math.floor(wordCount / 15), 10);
+if (impact < 5) {
+  impact = Math.floor(deterministicRandom(fallbackSeed + 2) * 6) + 5;
 }
 
-// -------------------------
+  // -------------------------
 
-novelty = Math.min(novelty, 40);
-feasibility = Math.min(feasibility, 30);
-impact = Math.min(impact, 30);
+  novelty = Math.min(novelty, 40);
+  feasibility = Math.min(feasibility, 30);
+  impact = Math.min(impact, 30);
 
   return {
     totalScore: Math.round(baseScore),
@@ -253,7 +255,6 @@ app.get("/certificate/:id", async (req, res) => {
 
     const doc = new jsPDF();
 
-    // Title
     doc.setFontSize(24);
     doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
 
@@ -268,9 +269,8 @@ app.get("/certificate/:id", async (req, res) => {
 
     doc.setFontSize(16);
 
-const titleLines = doc.splitTextToSize(data.invention_title, 160);
-
-doc.text(titleLines, 105, 95, { align: "center" });
+    const titleLines = doc.splitTextToSize(data.invention_title, 160);
+    doc.text(titleLines, 105, 95, { align: "center" });
 
     doc.setFontSize(14);
     doc.text("Evaluation Scores", 105, 120, { align: "center" });
@@ -281,7 +281,6 @@ doc.text(titleLines, 105, 95, { align: "center" });
 
     doc.text(`Total Patent Score: ${data.patent_score}`, 40, 180);
 
-    // QR Code
     const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
     const qrImage = await QRCode.toDataURL(qrData);
 
