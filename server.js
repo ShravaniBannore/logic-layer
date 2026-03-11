@@ -217,16 +217,17 @@ app.post("/submit", async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     res.status(200).json({
-      status: "success",
-      patent_score: patentScore,
-      loan_eligibility_amount: loanAmount,
-      eligibility_status: eligibilityStatus,
-      evaluation_model: {
-        model_name: "Neural Innovation Scoring Engine",
-        weightage: evaluationWeightage
-      },
-      data
-    });
+  status: "success",
+  patent_score: patentScore,
+  loan_eligibility_amount: loanAmount,
+  eligibility_status: eligibilityStatus,
+  evaluation_model: {
+    model_name: "Neural Innovation Scoring Engine",
+    weightage: evaluationWeightage
+  },
+  id: data[0].id,   // ⭐ ADD THIS
+  data
+});
 
   } catch (err) {
     res.status(500).json({ error: err.message });
