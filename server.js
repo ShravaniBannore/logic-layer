@@ -281,7 +281,7 @@ app.get("/certificate/:id", async (req, res) => {
 
     doc.text(`Total Patent Score: ${data.patent_score}`, 40, 180);
 
-    const qrData = `${process.env.FRONTEND_URL}/verify?id=${id}`;
+    const qrData = `https://logic-layer-server.onrender.com/verify?id=${id}`;
     const qrImage = await QRCode.toDataURL(qrData);
 
     doc.addImage(qrImage, "PNG", 150, 130, 40, 40);
