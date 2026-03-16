@@ -114,27 +114,21 @@ function calculatePatentScore(abstractText) {
 
   let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
   let feasibility = matchedMarket * 2 + Math.floor(wordCount / 15);
-let impact = matchedInnovation * 3 + Math.floor(wordCount / 20) - impactPenalty;
+  let impact = matchedInnovation * 3 + Math.floor(wordCount / 20) - impactPenalty;
 
-// -------------------------
-// Standard Innovation Fallback (Random but stable)
-// -------------------------
+  const fallbackSeed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-const fallbackSeed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  if (novelty < 5) {
+    novelty = Math.floor(deterministicRandom(fallbackSeed) * 6) + 5;
+  }
 
-if (novelty < 5) {
-  novelty = Math.floor(deterministicRandom(fallbackSeed) * 6) + 5;
-}
+  if (feasibility < 5) {
+    feasibility = Math.floor(deterministicRandom(fallbackSeed + 1) * 6) + 5;
+  }
 
-if (feasibility < 5) {
-  feasibility = Math.floor(deterministicRandom(fallbackSeed + 1) * 6) + 5;
-}
-
-if (impact < 5) {
-  impact = Math.floor(deterministicRandom(fallbackSeed + 2) * 6) + 5;
-}
-
-  // -------------------------
+  if (impact < 5) {
+    impact = Math.floor(deterministicRandom(fallbackSeed + 2) * 6) + 5;
+  }
 
   novelty = Math.min(novelty, 40);
   feasibility = Math.min(feasibility, 30);
@@ -217,17 +211,48 @@ app.post("/submit", async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     res.status(200).json({
-  status: "success",
-  patent_score: patentScore,
-  loan_eligibility_amount: loanAmount,
-  eligibility_status: eligibilityStatus,
-  evaluation_model: {
-    model_name: "Neural Innovation Scoring Engine",
-    weightage: evaluationWeightage
-  },
-  id: data[0].id,   // ⭐ ADD THIS
-  data
+      status: "success",
+      patent_score: patentScore,
+      loan_eligibility_amount: loanAmount,
+      eligibility_status: eligibilityStatus,
+      evaluation_model: {
+        model_name: "Neural Innovation Scoring Engine",
+        weightage: evaluationWeightage
+      },
+      id: data[0].id,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+
 });
+
+// -------------------------
+// NEW ROUTE (Frontend will call this)
+// Save certificate URL after upload
+// -------------------------
+app.post("/update-certificate-url", async (req, res) => {
+
+  try {
+
+    const { id, certificate_url } = req.body;
+
+    if (!id || !certificate_url) {
+      return res.status(400).json({ error: "Missing id or certificate_url" });
+    }
+
+    const { error } = await supabase
+      .from("Invention_Submissions")
+      .update({ certificate_url })
+      .eq("id", id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ success: true });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -345,8 +370,6 @@ app.get("/verify", async (req, res) => {
   }
 
 });
-
-
 
 // -------------------------
 const PORT = process.env.PORT || 5000;
