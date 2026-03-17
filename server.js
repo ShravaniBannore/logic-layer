@@ -230,38 +230,7 @@ app.post("/submit", async (req, res) => {
 });
 
 // -------------------------
-// NEW ROUTE (Frontend will call this)
-// Save certificate URL after upload
-// -------------------------
-app.post("/update-certificate-url", async (req, res) => {
-
-  try {
-
-    const { id, certificate_url } = req.body;
-
-    if (!id || !certificate_url) {
-      return res.status(400).json({ error: "Missing id or certificate_url" });
-    }
-
-    const { error } = await supabase
-      .from("Invention_Submissions")
-      .update({ certificate_url })
-      .eq("id", id);
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json({ success: true });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-
-});
-
-// -------------------------
-// PDF Certificate Generator
+// PDF Certificate Generator (UPDATED)
 // -------------------------
 app.get("/certificate/:id", async (req, res) => {
 
@@ -294,7 +263,6 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text("has submitted the innovation titled:", 105, 80, { align: "center" });
 
     doc.setFontSize(16);
-
     const titleLines = doc.splitTextToSize(data.invention_title, 160);
     doc.text(titleLines, 105, 95, { align: "center" });
 
@@ -318,6 +286,32 @@ app.get("/certificate/:id", async (req, res) => {
     doc.text("SISFS Innovation Program © 2026", 105, 290, { align: "center" });
 
     const pdfBuffer = doc.output("arraybuffer");
+
+    // 🔹 Upload to Supabase
+    const fileName = `certificate_${id}.pdf`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("certificates")
+      .upload(fileName, Buffer.from(pdfBuffer), {
+        contentType: "application/pdf",
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error(uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase
+      .storage
+      .from("certificates")
+      .getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    await supabase
+      .from("Invention_Submissions")
+      .update({ certificate_url: publicUrl })
+      .eq("id", id);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=certificate_${id}.pdf`);
