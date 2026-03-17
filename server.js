@@ -1,7 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const multer = require("multer");
-const upload = multer(); // memory storage
 require("dotenv").config();
 
 const { createClient } = require("@supabase/supabase-js");
@@ -373,4 +371,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
