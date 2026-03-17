@@ -1,14 +1,14 @@
 const express = require("express");
 const cors = require("cors");
+const multer = require("multer");
+const upload = multer(); // memory storage
 require("dotenv").config();
 
 const { createClient } = require("@supabase/supabase-js");
 const { jsPDF } = require("jspdf");
 const QRCode = require("qrcode");
-const multer = require("multer");
 
 const app = express();
-const upload = multer(); // memory storage
 
 app.use(cors());
 app.use(express.json());
@@ -22,7 +22,7 @@ const supabase = createClient(
 );
 
 // -------------------------
-// AI Evaluation Model
+// AI Evaluation Weightage Model
 // -------------------------
 const evaluationWeightage = {
   technical_keywords: "40%",
@@ -30,58 +30,141 @@ const evaluationWeightage = {
   innovation_depth: "30%"
 };
 
+// -------------------------
 function deterministicRandom(seed) {
   let x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
 
 // -------------------------
-// Keywords
-// -------------------------
-const technicalKeywords = ["ai","machine learning","iot","blockchain","automation"];
-const marketKeywords = ["market","revenue","efficiency","cost"];
-const innovationKeywords = ["innovative","novel","breakthrough"];
-const vagueWords = ["good","nice","thing"];
-const structuralVerbs = ["method","system","process"];
+const technicalKeywords = [
+  "ai","ai-driven","neural","neural-network","machine learning",
+  "deep learning","iot","sensors","automation","algorithm",
+  "blockchain","decentralized","scalable","edge computing",
+  "system architecture","proprietary algorithms","advanced materials"
+];
+
+const marketKeywords = [
+  "market","industry","b2b","commercial","scaling",
+  "revenue","efficiency","optimization","cost reduction"
+];
+
+const innovationKeywords = [
+  "novel","innovative","breakthrough","proprietary",
+  "next-generation","risk mitigation","sustainable",
+  "hydroponic","bionic","renewable","eco-friendly"
+];
+
+const vagueWords = [
+  "good","nice","thing","stuff","maybe","some","many","various"
+];
+
+const structuralVerbs = ["method","apparatus","system","process"];
 
 // -------------------------
-// Patent Score
+// Patent Scoring
 // -------------------------
-function calculatePatentScore(text) {
-  text = text.toLowerCase();
-  const words = text.split(/\s+/);
+function calculatePatentScore(abstractText) {
 
-  let score = 50;
+  const text = abstractText.toLowerCase();
+  const words = text.trim().split(/\s+/);
 
-  const tech = technicalKeywords.filter(k => text.includes(k)).length;
-  const market = marketKeywords.filter(k => text.includes(k)).length;
-  const innovation = innovationKeywords.filter(k => text.includes(k)).length;
+  let baseScore = 50;
 
-  score += tech * 5 + market * 2 + innovation * 3;
+  let matchedTech = technicalKeywords.filter(k => text.includes(k)).length;
+  let matchedMarket = marketKeywords.filter(k => text.includes(k)).length;
+  let matchedInnovation = innovationKeywords.filter(k => text.includes(k)).length;
 
-  if (words.length > 100) score += 10;
+  let noveltyBoost = 0;
 
-  vagueWords.forEach(v => { if (text.includes(v)) score -= 2; });
+  technicalKeywords.forEach(tech => {
+    structuralVerbs.forEach(verb => {
+      if (text.includes(tech) && text.includes(verb)) {
+        noveltyBoost += 5;
+      }
+    });
+  });
 
-  const seed = text.split("").reduce((a,c)=>a+c.charCodeAt(0),0);
-  score += Math.floor(deterministicRandom(seed) * 5);
+  let impactPenalty = 0;
 
-  score = Math.max(0, Math.min(95, score));
+  vagueWords.forEach(v => {
+    if (text.includes(v)) impactPenalty += 2;
+  });
+
+  const wordCount = words.length;
+
+  let wordBonus = 0;
+
+  if (wordCount > 150) wordBonus = 10;
+  else if (wordCount > 100) wordBonus = 7;
+  else if (wordCount > 60) wordBonus = 5;
+
+  baseScore += matchedTech * 5;
+  baseScore += matchedMarket * 2;
+  baseScore += matchedInnovation * 3;
+  baseScore += noveltyBoost;
+  baseScore += wordBonus;
+  baseScore -= impactPenalty;
+
+  const seed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const randomBoost = Math.floor(deterministicRandom(seed) * 6);
+
+  baseScore += randomBoost;
+
+  if (baseScore > 95) baseScore = 95;
+  if (baseScore < 0) baseScore = 0;
+
+  let novelty = matchedTech * 5 + noveltyBoost + wordBonus;
+  let feasibility = matchedMarket * 2 + Math.floor(wordCount / 15);
+  let impact = matchedInnovation * 3 + Math.floor(wordCount / 20) - impactPenalty;
+
+  const fallbackSeed = text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  if (novelty < 5) {
+    novelty = Math.floor(deterministicRandom(fallbackSeed) * 6) + 5;
+  }
+
+  if (feasibility < 5) {
+    feasibility = Math.floor(deterministicRandom(fallbackSeed + 1) * 6) + 5;
+  }
+
+  if (impact < 5) {
+    impact = Math.floor(deterministicRandom(fallbackSeed + 2) * 6) + 5;
+  }
+
+  novelty = Math.min(novelty, 40);
+  feasibility = Math.min(feasibility, 30);
+  impact = Math.min(impact, 30);
 
   return {
-    totalScore: score,
-    novelty: Math.min(40, tech * 5),
-    feasibility: Math.min(30, market * 3),
-    impact: Math.min(30, innovation * 3)
+    totalScore: Math.round(baseScore),
+    novelty,
+    feasibility,
+    impact
   };
+
 }
 
 // -------------------------
-// Loan
+// Loan Logic
 // -------------------------
-function calculateLoanAmount(score) {
+function calculateLoanAmount(score, abstractText) {
+
   if (score < 80) return 0;
-  return score >= 90 ? 100000 : 85000;
+
+  let baseLoan = score >= 90 ? 98000 : 85000;
+
+  const seed = abstractText.split("")
+  .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  const randomVariation = Math.floor(deterministicRandom(seed) * 4000);
+
+  let finalLoan = baseLoan + randomVariation;
+
+  if (finalLoan > 100000) finalLoan = 100000;
+
+  return Math.round(finalLoan);
+
 }
 
 // -------------------------
@@ -90,18 +173,28 @@ app.get("/", (req, res) => {
 });
 
 // -------------------------
-// SUBMIT
+// Submission Route
 // -------------------------
 app.post("/submit", async (req, res) => {
+
   try {
+
     const { student_name, invention_title, abstract_text } = req.body;
 
     if (!student_name || !invention_title || !abstract_text) {
-      return res.status(400).json({ error: "Missing fields" });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const scores = calculatePatentScore(abstract_text);
-    const loan = calculateLoanAmount(scores.totalScore);
+    const patentScore = scores.totalScore;
+
+    const loanAmount = calculateLoanAmount(patentScore, abstract_text);
+
+    let eligibilityStatus;
+
+    if (patentScore >= 80) eligibilityStatus = "Eligible for Startup Funding ✅";
+    else if (patentScore >= 70 && patentScore <= 79) eligibilityStatus = "Needs Improvement ⚠️";
+    else eligibilityStatus = "Not Eligible ❌";
 
     const { data, error } = await supabase
       .from("Invention_Submissions")
@@ -109,136 +202,175 @@ app.post("/submit", async (req, res) => {
         student_name,
         invention_title,
         abstract_text,
-        patent_score: scores.totalScore,
-        loan_eligibility_amount: loan,
+        patent_score: patentScore,
+        loan_eligibility_amount: loanAmount,
         novelty_score: scores.novelty,
         feasibility_score: scores.feasibility,
         impact_score: scores.impact
       }])
       .select();
 
-    if (error) throw error;
+    if (error) return res.status(500).json({ error: error.message });
 
-    res.json({
+    res.status(200).json({
+      status: "success",
+      patent_score: patentScore,
+      loan_eligibility_amount: loanAmount,
+      eligibility_status: eligibilityStatus,
+      evaluation_model: {
+        model_name: "Neural Innovation Scoring Engine",
+        weightage: evaluationWeightage
+      },
       id: data[0].id,
-      patent_score: scores.totalScore,
-      loan_eligibility_amount: loan,
-      novelty_score: scores.novelty,
-      feasibility_score: scores.feasibility,
-      impact_score: scores.impact
+      data
     });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+
 });
 
 // -------------------------
-// 🔥 UPLOAD CERTIFICATE + SAVE URL (MAIN FEATURE)
-// -------------------------
-app.post("/certificate/:id", upload.single("file"), async (req, res) => {
-  try {
-    const file = req.file;
-    const id = req.params.id;
-
-    if (!file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    const fileName = `audit_${id}.pdf`;
-
-    // Upload to Supabase
-    const { error: uploadError } = await supabase.storage
-      .from("certificates")
-      .upload(fileName, file.buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (uploadError) throw uploadError;
-
-    // Get Public URL
-    const { data } = supabase.storage
-      .from("certificates")
-      .getPublicUrl(fileName);
-
-    const publicUrl = data.publicUrl;
-
-    // Save URL in DB
-    const { error: dbError } = await supabase
-      .from("Invention_Submissions")
-      .update({ certificate_url: publicUrl })
-      .eq("id", id);
-
-    if (dbError) throw dbError;
-
-    res.json({ success: true, certificate_url: publicUrl });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// -------------------------
-// DOWNLOAD CERTIFICATE (optional fallback)
+// PDF Certificate Generator (UPDATED)
 // -------------------------
 app.get("/certificate/:id", async (req, res) => {
+
   try {
+
     const { id } = req.params;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("Invention_Submissions")
       .select("*")
       .eq("id", id)
       .single();
 
-    if (!data) return res.status(404).send("Not found");
+    if (error || !data) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
 
     const doc = new jsPDF();
 
-    doc.text("Innovation Certificate", 105, 30, { align: "center" });
-    doc.text(data.student_name, 105, 50, { align: "center" });
-    doc.text(data.invention_title, 105, 70, { align: "center" });
+    doc.setFontSize(24);
+    doc.text("SISFS Innovation Certificate", 105, 30, { align: "center" });
 
-    const qr = await QRCode.toDataURL(
-      `https://logic-layer-server.onrender.com/verify?id=${id}`
-    );
+    doc.setFontSize(14);
+    doc.text("This certifies that", 105, 50, { align: "center" });
 
-    doc.addImage(qr, "PNG", 80, 100, 50, 50);
+    doc.setFontSize(18);
+    doc.text(`${data.student_name}`, 105, 65, { align: "center" });
 
-    const pdf = doc.output("arraybuffer");
+    doc.setFontSize(14);
+    doc.text("has submitted the innovation titled:", 105, 80, { align: "center" });
+
+    doc.setFontSize(16);
+    const titleLines = doc.splitTextToSize(data.invention_title, 160);
+    doc.text(titleLines, 105, 95, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text("Evaluation Scores", 105, 120, { align: "center" });
+
+    doc.text(`Novelty: ${data.novelty_score} / 40`, 40, 140);
+    doc.text(`Feasibility: ${data.feasibility_score} / 30`, 40, 150);
+    doc.text(`Impact: ${data.impact_score} / 30`, 40, 160);
+
+    doc.text(`Total Patent Score: ${data.patent_score}`, 40, 180);
+
+    const qrData = `https://logic-layer-server.onrender.com/verify?id=${id}`;
+    const qrImage = await QRCode.toDataURL(qrData);
+
+    doc.addImage(qrImage, "PNG", 150, 130, 40, 40);
+
+    doc.setFontSize(10);
+    doc.text("Scan QR to verify certificate", 150, 175);
+
+    doc.text("SISFS Innovation Program © 2026", 105, 290, { align: "center" });
+
+    const pdfBuffer = doc.output("arraybuffer");
+
+    // 🔹 Upload to Supabase
+    const fileName = `certificate_${id}.pdf`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("certificates")
+      .upload(fileName, Buffer.from(pdfBuffer), {
+        contentType: "application/pdf",
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error(uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase
+      .storage
+      .from("certificates")
+      .getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    await supabase
+      .from("Invention_Submissions")
+      .update({ certificate_url: publicUrl })
+      .eq("id", id);
 
     res.setHeader("Content-Type", "application/pdf");
-    res.send(Buffer.from(pdf));
+    res.setHeader("Content-Disposition", `attachment; filename=certificate_${id}.pdf`);
+
+    res.send(Buffer.from(pdfBuffer));
 
   } catch (err) {
-    res.status(500).send("Error");
+    res.status(500).json({ error: err.message });
   }
+
 });
 
 // -------------------------
-// VERIFY
+// Certificate Verification Route
 // -------------------------
 app.get("/verify", async (req, res) => {
-  const { id } = req.query;
 
-  const { data } = await supabase
-    .from("Invention_Submissions")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
 
-  if (!data) return res.send("Invalid");
+    const { id } = req.query;
 
-  res.send(`
-    <h1>✅ Verified</h1>
-    <p>${data.student_name}</p>
-    <p>${data.invention_title}</p>
-    <p>${data.patent_score}</p>
-  `);
+    if (!id) {
+      return res.status(400).send("Invalid certificate ID");
+    }
+
+    const { data, error } = await supabase
+      .from("Invention_Submissions")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).send("Certificate not found");
+    }
+
+    res.send(`
+      <html>
+        <body style="font-family:sans-serif;text-align:center;margin-top:50px">
+          <h1>✅ Verified by NexaRise</h1>
+          <p><b>Student:</b> ${data.student_name}</p>
+          <p><b>Innovation:</b> ${data.invention_title}</p>
+          <p><b>Patent Score:</b> ${data.patent_score}</p>
+          <p><b>Loan Eligibility:</b> ₹${data.loan_eligibility_amount}</p>
+        </body>
+      </html>
+    `);
+
+  } catch (err) {
+    res.status(500).send("Verification error");
+  }
+
 });
 
 // -------------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log("Server running 🚀"));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
